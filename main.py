@@ -1,55 +1,58 @@
-import os
-import csv
-from datetime import datetime
+import json
 import requests
 
-INPUT_FILE = "usuarios.txt"
-OUTPUT_FILE = "historial_estadisticas.csv"
+# Lista de usuarios que estás rastreando
+usuarios = ['alfredo86viera', 'yusleny809gmail', 'nival61423']
 
-def obtener_datos_publicos(username):
-    url = f"https://cdn.syndication.twimg.com/widgets/followbutton/info.json?screen_names={username}"
-    try:
-        response = requests.get(url, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            if data and len(data) > 0:
-                user_info = data[0]
-                return {
-                    "fecha": datetime.utcnow().strftime("%Y-%m-%d"),
-                    "username": username,
-                    "followers": user_info.get("followers_count", 0),
-                    "following": user_info.get("friends_count", 0),
-                    "statuses": user_info.get("statuses_count", 0)
-                }
-    except Exception as e:
-        print(f"Error con {username}: {e}")
+# Cabeceras para simular un navegador real y reducir bloqueos
+headers = {
+    'User-Agent': (
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,'
+        ' like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    ),
+    'Accept-Language': 'es-ES,es;q=0.9',
+}
+
+
+def monitorear_usuario(usuario):
+  print(f'Monitoreando a @{usuario}...')
+
+  # URL o endpoint que utiliza tu script para obtener los datos
+  url = f'https://twitter.com/{usuario}'
+
+  try:
+    response = requests.get(url, headers=headers, timeout=15)
+
+    if response.status_code == 200:
+      try:
+        # Intenta leer la respuesta como datos estructurados (JSON)
+        data = response.json()
+        print(f'-> Datos procesados correctamente para @{usuario}')
+        return data
+      except (ValueError, json.JSONDecodeError):
+        # Solución al error: X devuelve HTML en lugar de JSON debido a sus restricciones
+        print(
+            f'-> Aviso: La plataforma devolvió contenido protegido o no JSON'
+            f' para @{usuario}.'
+        )
+        return None
+    else:
+      print(f'-> Error HTTP {response.status_code} al consultar a @{usuario}')
+      return None
+
+  except Exception as e:
+    print(f'-> Error de conexión con @{usuario}: {e}')
     return None
 
+
 def main():
-    if not os.path.exists(INPUT_FILE):
-        print("No se encontró el archivo de usuarios.")
-        return
+  print(f'Iniciando monitoreo de {len(usuarios)} usuarios...')
 
-    with open(INPUT_FILE, "r") as f:
-        usuarios = [line.strip() for line in f if line.strip()]
+  for usuario in usuarios:
+    monitorear_usuario(usuario)
 
-    resultados = []
-    print(f"Monitoreando {len(usuarios)} usuarios...")
+  print('Monitoreo diario completado con éxito.')
 
-    for user in usuarios:
-        datos = obtener_datos_publicos(user)
-        if datos:
-            resultados.append(datos)
 
-    file_exists = os.path.exists(OUTPUT_FILE)
-    with open(OUTPUT_FILE, mode="a", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["fecha", "username", "followers", "following", "statuses"])
-        if not file_exists:
-            writer.writeheader()
-        for row in resultados:
-            writer.writerow(row)
-    
-    print("Monitoreo diario completado con éxito.")
-
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+  main()
